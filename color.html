@@ -3,128 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Interactive Cube</title>
+    <title>CUBE</title>
+    <link rel="icon" type="image/x-icon" href="logo.png">
     <style>
-        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
-        #instructions {
-            position: absolute;
-            top: 20px;
-            width: 100%;
-            text-align: center;
-            color: white;
-            pointer-events: none;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-size: 12px;
-            opacity: 0.6;
-        }
     </style>
 </head>
 <body>
-    <div id="instructions">Click and Drag to Rotate</div>
-    
-    <!-- Using a more recent version of Three.js via CDN -->
-    <script src="cdnjs.cloudflare.com"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        let scene, camera, renderer, cube, edges;
-        let isDragging = false;
-        
-        // Physics variables for smooth rotation
-        let targetRotationX = 0.5;
-        let targetRotationY = 0.5;
+        let scene, camera, renderer, cube;
+        let isMouseDown = false;
         let mouseX = 0, mouseY = 0;
-        let windowHalfX = window.innerWidth / 2;
-        let windowHalfY = window.innerHeight / 2;
+        let rotationX = 0, rotationY = 0;
+        let lastMouseX = 0, lastMouseY = 0;
 
         function init() {
+            // Set up the scene
             scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000); // Changed to black
 
-            // Camera setup
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 4;
+            // Set up the camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
 
-            // Renderer setup with Antialiasing for smooth edges
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
+            // Set up the renderer
+            renderer = new THREE.WebGLRenderer();
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Lighting (Essential for MeshStandardMaterial)
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-
-            const pointLight = new THREE.PointLight(0x00ff88, 1);
-            pointLight.position.set(5, 5, 5);
-            scene.add(pointLight);
-
-            const blueLight = new THREE.PointLight(0x0088ff, 1);
-            blueLight.position.set(-5, -5, 5);
-            scene.add(blueLight);
-
-            // Create Cube with modern material
+            // Create a cube geometry
             const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshStandardMaterial({ 
-                color: 0x222222, 
-                roughness: 0.2, 
-                metalness: 0.8 
-            });
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
             cube = new THREE.Mesh(geometry, material);
-            
-            // Add glowing edges
-            const edgeGeo = new THREE.EdgesGeometry(geometry);
-            const edgeMat = new THREE.LineBasicMaterial({ color: 0x00ff88, linewidth: 2 });
-            edges = new THREE.LineSegments(edgeGeo, edgeMat);
-            cube.add(edges);
-
             scene.add(cube);
 
-            // Events
-            document.addEventListener('mousedown', () => isDragging = true);
-            document.addEventListener('mouseup', () => isDragging = false);
+            // Event listeners for mouse control
+            document.addEventListener('mousedown', onMouseDown);
             document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('touchstart', (e) => { isDragging = true; onMouseMove(e.touches[0]); });
-            document.addEventListener('touchend', () => isDragging = false);
-            document.addEventListener('touchmove', (e) => onMouseMove(e.touches[0]));
-            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mouseup', onMouseUp);
 
+            // Animation loop
             animate();
         }
 
+        // Mouse down event
+        function onMouseDown(event) {
+            isMouseDown = true;
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+        }
+
+        // Mouse move event
         function onMouseMove(event) {
-            if (isDragging) {
-                // Map mouse movement to rotation target
-                targetRotationY += (event.clientX - windowHalfX) * 0.0001;
-                targetRotationX += (event.clientY - windowHalfY) * 0.0001;
+            if (isMouseDown) {
+                // Calculate the change in mouse position
+                const deltaX = event.clientX - lastMouseX;
+                const deltaY = event.clientY - lastMouseY;
+
+                // Update rotation values
+                rotationX += deltaY * 0.01;  // Sensitivity for vertical movement
+                rotationY += deltaX * 0.01;  // Sensitivity for horizontal movement
+
+                // Update last mouse position
+                lastMouseX = event.clientX;
+                lastMouseY = event.clientY;
             }
         }
 
-        function onWindowResize() {
-            windowHalfX = window.innerWidth / 2;
-            windowHalfY = window.innerHeight / 2;
+        // Mouse up event
+        function onMouseUp() {
+            isMouseDown = false;
+        }
+
+        // Animation loop
+        function animate() {
+            // Apply rotation based on user input
+            cube.rotation.x = rotationX;
+            cube.rotation.y = rotationY;
+
+            // Render the scene
+            renderer.render(scene, camera);
+
+            // Call animate again
+            requestAnimationFrame(animate);
+        }
+
+        // Adjust camera and renderer size on window resize
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        });
 
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Smooth Interpolation (Lerp)
-            // This makes the cube feel "heavy" and smooth rather than rigid
-            cube.rotation.y += (targetRotationY - cube.rotation.y) * 0.05;
-            cube.rotation.x += (targetRotationX - cube.rotation.x) * 0.05;
-
-            // Subtle auto-rotation when not dragging
-            if (!isDragging) {
-                targetRotationY += 0.005;
-                targetRotationX += 0.002;
-            }
-
-            renderer.render(scene, camera);
-        }
-
+        // Initialize the game
         init();
     </script>
 </body>
